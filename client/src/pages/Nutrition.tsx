@@ -331,9 +331,10 @@ const Nutrition: React.FC = () => {
           <h2 className="text-lg font-semibold text-gray-800">Repas Recommandés</h2>
           <div className="space-y-3">
             {Object.entries(sportConfig.mealSuggestions).map(([key, meal]) => (
-              <button 
-                key={key} 
+              <button
+                key={key}
                 className="w-full text-left p-4 rounded-xl border bg-white flex items-center space-x-3 hover:bg-gray-50 transition-colors"
+                onClick={() => alert(`Suggestion sélectionnée : ${meal.name}`)}
               >
                 <div className="p-2 rounded-lg bg-green-100 text-green-600">
                   {React.createElement(meal.icon, { size: 20 })}

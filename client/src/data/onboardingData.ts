@@ -70,41 +70,41 @@ export const AVAILABLE_MODULES: OnboardingModule[] = [
   }
 ];
 
-export const MAIN_OBJECTIVES = [
+export const WELLNESS_PACKS = [
   {
-    id: 'performance',
-    name: 'Athletic Performance',
-    description: 'Improve my performance in sports',
-    icon: '🏆',
-    modules: ['sport', 'strength', 'nutrition', 'sleep']
+    id: 'athlete_complete',
+    name: 'Athlète Complet',
+    description: 'Pour les sportifs visant la performance maximale',
+    modules: ['sport', 'strength', 'nutrition', 'hydration', 'sleep'],
+    price_tier: 'premium'
   },
   {
-    id: 'health_wellness',
-    name: 'Health & Wellness',
-    description: 'Maintain overall good health',
-    icon: '❤️',
-    modules: ['nutrition', 'sleep', 'hydration', 'wellness']
+    id: 'sport_essentials',
+    name: 'Sport & Récupération',
+    description: "L'essentiel pour progresser dans votre sport",
+    modules: ['sport', 'sleep', 'hydration'],
+    price_tier: 'standard'
   },
   {
-    id: 'body_composition',
-    name: 'Body Transformation',
-    description: 'Lose weight or build muscle',
-    icon: '⚖️',
-    modules: ['strength', 'nutrition', 'hydration']
+    id: 'body_transformation',
+    name: 'Transformation Physique',
+    description: 'Musculation et nutrition pour transformer votre corps',
+    modules: ['strength', 'nutrition', 'hydration'],
+    price_tier: 'standard'
   },
   {
-    id: 'energy_sleep',
-    name: 'Energy & Recovery',
-    description: 'Boost my energy and recovery',
-    icon: '⚡',
-    modules: ['sleep', 'nutrition', 'hydration', 'wellness']
+    id: 'wellness_basics',
+    name: 'Bien-être Quotidien',
+    description: 'Les bases pour une meilleure santé',
+    modules: ['nutrition', 'sleep', 'hydration'],
+    price_tier: 'basic'
   },
   {
-    id: 'holistic',
-    name: 'Complete Transformation',
-    description: 'Optimize every aspect of my life',
-    icon: '🌟',
-    modules: ['sport', 'strength', 'nutrition', 'sleep', 'hydration', 'wellness']
+    id: 'custom',
+    name: 'Sur Mesure',
+    description: 'Choisissez vos modules à la carte',
+    modules: [],
+    price_tier: 'variable'
   }
 ];
 

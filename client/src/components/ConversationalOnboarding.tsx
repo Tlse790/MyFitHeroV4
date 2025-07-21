@@ -1,3 +1,10 @@
+import { MultilangString } from '@/types/conversationalOnboarding';
+
+function getLocaleString(val: string | MultilangString | undefined, locale: string = 'fr'): string {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  return val[locale as keyof MultilangString] || val.fr || Object.values(val)[0] || '';
+}
 // client/src/components/ConversationalOnboarding.tsx
 import { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +26,7 @@ import {
   CONVERSATIONAL_ONBOARDING_FLOW, 
   calculateEstimatedTime
 } from '@/data/conversationalFlow';
-import { AVAILABLE_SPORTS, MAIN_OBJECTIVES, AVAILABLE_MODULES } from '@/data/onboardingData';
+import { AVAILABLE_SPORTS, WELLNESS_PACKS, AVAILABLE_MODULES } from '@/data/onboardingData';
 import SportSelector from './SportSelector';
 import PositionSelector from './PositionSelector';
 import PersonalInfoForm from './PersonalInfoForm';
@@ -31,7 +38,19 @@ interface ConversationalOnboardingProps {
   onSkip?: () => void;
 }
 
+// --- Prix par module (exemple)
+const MODULE_PRICES: Record<string, number> = {
+  sport: 9,
+  strength: 7,
+  nutrition: 7,
+  sleep: 5,
+  hydration: 5,
+  wellness: 4
+};
+
 export default function ConversationalOnboarding({ onComplete, onSkip }: ConversationalOnboardingProps) {
+  // Détection de la locale (par défaut fr, ou selon onboardingData.locale)
+  const [locale, setLocale] = useState<'fr' | 'en' | 'us'>('fr');
   const { toast } = useToast();
   const [currentStepId, setCurrentStepId] = useState(CONVERSATIONAL_ONBOARDING_FLOW.initialStep);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({
@@ -48,6 +67,9 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
   });
   
   const [currentResponse, setCurrentResponse] = useState<any>(null);
+  const [selectedPack, setSelectedPack] = useState<string | undefined>(undefined);
+  const [trialModules, setTrialModules] = useState<string[]>([]);
+  const [dynamicPrice, setDynamicPrice] = useState<number>(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showTips, setShowTips] = useState(false);
@@ -59,42 +81,45 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
   // Validation des réponses
   const validateResponse = useCallback((step: ConversationalStep, response: any): string[] => {
     const errors: string[] = [];
-    
     if (!step.validation) return errors;
-    
     step.validation.forEach(rule => {
+      let msg = getLocaleString(rule.message, locale);
       switch (rule.type) {
         case 'required':
           if (!response || (Array.isArray(response) && response.length === 0)) {
-            errors.push(rule.message);
+            errors.push(msg);
           }
           break;
         case 'min':
           if (typeof response === 'string' && response.length < rule.value) {
-            errors.push(rule.message);
+            errors.push(msg);
           } else if (typeof response === 'number' && response < rule.value) {
-            errors.push(rule.message);
+            errors.push(msg);
           }
           break;
         case 'max':
           if (typeof response === 'string' && response.length > rule.value) {
-            errors.push(rule.message);
+            errors.push(msg);
           } else if (typeof response === 'number' && response > rule.value) {
-            errors.push(rule.message);
+            errors.push(msg);
           }
           break;
         case 'custom':
           if (rule.validator && !rule.validator(response)) {
-            errors.push(rule.message);
+            errors.push(msg);
           }
           break;
       }
     });
-    
     return errors;
-  }, []);
+  }, [locale]);
 
   // Navigation vers l'étape suivante
+  // --- Calcul du prix dynamique selon modules ---
+  const calculatePrice = (modules: string[]) => {
+    return modules.reduce((sum, mod) => sum + (MODULE_PRICES[mod] || 0), 0);
+  };
+
   const goToNextStep = useCallback(async () => {
     if (!currentStep) return;
     
@@ -125,6 +150,46 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
         nextStepId = currentStep.nextStep(currentResponse, updatedData);
       } else {
         nextStepId = currentStep.nextStep || 'completion';
+      }
+
+      // Gestion du pack sélectionné
+      if (currentStep.id === 'pack_selection') {
+        setSelectedPack(currentResponse);
+        updatedData.selectedPack = currentResponse;
+        // Si custom, modules choisis plus tard
+        if (currentResponse !== 'custom') {
+          const pack = WELLNESS_PACKS.find(p => p.id === currentResponse);
+          if (pack) {
+            updatedData.selectedModules = pack.modules;
+            setDynamicPrice(calculatePrice(pack.modules));
+          }
+        }
+      }
+
+      // Gestion des modules custom
+      if (currentStep.id === 'custom_module_selection') {
+        updatedData.selectedModules = currentResponse;
+        setDynamicPrice(calculatePrice(currentResponse));
+      }
+
+      // Gestion de l'upsell : suggestion de modules complémentaires
+      if (currentStep.id === 'pack_upsell') {
+        // Exemple de logique d'upsell
+        const modules = updatedData.selectedModules || [];
+        const suggestions: string[] = [];
+        if (modules.includes('sport') && !modules.includes('strength')) suggestions.push('strength');
+        if (modules.includes('strength') && !modules.includes('nutrition')) suggestions.push('nutrition');
+        if (modules.includes('sport') && !modules.includes('sleep')) suggestions.push('sleep');
+        updatedData.suggestedModules = suggestions;
+        // Proposer essai gratuit sur ces modules
+        setTrialModules(suggestions);
+        updatedData.trialModules = suggestions;
+        if (suggestions.length > 0) {
+          // Date de fin d'essai 15 jours
+          const trialEnd = new Date();
+          trialEnd.setDate(trialEnd.getDate() + 15);
+          updatedData.trialEndDate = trialEnd.toISOString();
+        }
       }
       
       // Logique spéciale pour les modules
@@ -158,7 +223,14 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
       setCurrentResponse(null);
       
       // Sauvegarde automatique seulement à certaines étapes importantes
-      if (['module_selection', 'sport_selection', 'personal_info'].includes(currentStep.id)) {
+      if ([
+        'module_selection',
+        'custom_module_selection',
+        'pack_selection',
+        'pack_upsell',
+        'sport_selection',
+        'personal_info'
+      ].includes(currentStep.id)) {
         await saveProgress(updatedData);
       }
       
@@ -208,6 +280,7 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
   };
 
   // Sauvegarde des données
+  // --- Sauvegarde enrichie du pack, modules d'essai, date d'essai ---
   const saveProgress = async (data: OnboardingData) => {
     try {
       console.log('🟡 Début de saveProgress avec data:', data);
@@ -228,8 +301,12 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
         gender: data.gender,
         lifestyle: data.lifestyle,
         fitness_goal: mapFitnessGoal(data.mainObjective || ''), // Corrigé: utiliser le mapping
-        modules: data.selectedModules || ['sport', 'nutrition', 'sleep', 'hydration'], // Corrigé: selected_modules → modules
-        active_modules: data.selectedModules || ['sport', 'nutrition', 'sleep', 'hydration'], // Corrigé: selected_modules → active_modules
+        modules: data.selectedModules || ['sport', 'nutrition', 'sleep', 'hydration'],
+        active_modules: data.selectedModules || ['sport', 'nutrition', 'sleep', 'hydration'],
+        selected_pack: data.selectedPack,
+        trial_modules: data.trialModules || [],
+        trial_end_date: data.trialEndDate || null,
+        suggested_modules: data.suggestedModules || [],
         sport: data.sport,
         sport_position: data.sportPosition,
         sport_level: mapSportLevel(data.sportLevel || ''),
@@ -357,12 +434,12 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
           <div className="text-center space-y-6">
             <div className="text-6xl mb-4">{currentStep.illustration}</div>
             <div className="space-y-4">
-              <h1 className="text-3xl font-bold text-gray-900">{currentStep.title}</h1>
+              <h1 className="text-3xl font-bold text-gray-900">{getLocaleString(currentStep.title, locale)}</h1>
               {currentStep.subtitle && (
-                <p className="text-xl text-gray-600">{currentStep.subtitle}</p>
+                <p className="text-xl text-gray-600">{getLocaleString(currentStep.subtitle, locale)}</p>
               )}
               {currentStep.description && (
-                <p className="text-gray-700 max-w-2xl mx-auto">{currentStep.description}</p>
+                <p className="text-gray-700 max-w-2xl mx-auto">{getLocaleString(currentStep.description, locale)}</p>
               )}
             </div>
             
@@ -370,10 +447,10 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h3 className="font-semibold text-blue-900 mb-2">💡 Conseils</h3>
                 <ul className="text-sm text-blue-800 space-y-1">
-                  {currentStep.tips.map((tip, index) => (
+                  {(Array.isArray(currentStep.tips) ? currentStep.tips : []).map((tip, index) => (
                     <li key={index} className="flex items-start">
                       <Check className="h-4 w-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
-                      {tip}
+                      {getLocaleString(tip, locale)}
                     </li>
                   ))}
                 </ul>
@@ -398,13 +475,13 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
             <div className="text-center space-y-4">
               <div className="text-4xl">{currentStep.illustration}</div>
               <h1 className="text-2xl font-bold text-gray-900">
-                {currentStep.title?.replace('{firstName}', onboardingData.firstName || '')}
+                {getLocaleString(currentStep.title, locale).replace('{firstName}', onboardingData.firstName || '')}
               </h1>
               {currentStep.question && (
-                <p className="text-lg text-gray-700">{currentStep.question}</p>
+                <p className="text-lg text-gray-700">{getLocaleString(currentStep.question, locale)}</p>
               )}
               {currentStep.description && (
-                <p className="text-gray-600">{currentStep.description}</p>
+                <p className="text-gray-600">{getLocaleString(currentStep.description, locale)}</p>
               )}
             </div>
 
@@ -450,8 +527,8 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
           <div className="space-y-6">
             <div className="text-center space-y-4">
               <div className="text-4xl">{currentStep.illustration}</div>
-              <h1 className="text-2xl font-bold text-gray-900">{currentStep.title}</h1>
-              <p className="text-gray-600">{currentStep.description}</p>
+              <h1 className="text-2xl font-bold text-gray-900">{getLocaleString(currentStep.title, locale)}</h1>
+              <p className="text-gray-600">{getLocaleString(currentStep.description, locale)}</p>
             </div>
 
             <div className="max-w-2xl mx-auto space-y-4">
@@ -476,8 +553,8 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
         return (
           <div className="text-center space-y-6">
             <div className="text-6xl mb-4">{currentStep.illustration}</div>
-            <h1 className="text-3xl font-bold text-gray-900">{currentStep.title}</h1>
-            <p className="text-xl text-gray-600">{currentStep.description}</p>
+            <h1 className="text-3xl font-bold text-gray-900">{getLocaleString(currentStep.title, locale)}</h1>
+            <p className="text-xl text-gray-600">{getLocaleString(currentStep.description, locale)}</p>
             
             <div className="bg-green-50 p-6 rounded-lg">
               <h3 className="font-semibold text-green-900 mb-2">🎉 Félicitations !</h3>
@@ -638,9 +715,9 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
                 <div className="flex items-center space-x-3">
                   {option.icon && <span className="text-2xl">{option.icon}</span>}
                   <div className="flex-1">
-                    <div className="font-semibold">{option.label}</div>
+                    <div className="font-semibold">{getLocaleString(option.label, locale)}</div>
                     {option.description && (
-                      <div className="text-sm text-gray-600">{option.description}</div>
+                      <div className="text-sm text-gray-600">{getLocaleString(option.description, locale)}</div>
                     )}
                   </div>
                   {currentResponse === option.value && (
@@ -678,9 +755,9 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
                   <div className="flex items-center space-x-3">
                     {option.icon && <span className="text-2xl">{option.icon}</span>}
                     <div className="flex-1">
-                      <div className="font-semibold">{option.label}</div>
+                      <div className="font-semibold">{getLocaleString(option.label, locale)}</div>
                       {option.description && (
-                        <div className="text-sm text-gray-600">{option.description}</div>
+                        <div className="text-sm text-gray-600">{getLocaleString(option.description, locale)}</div>
                       )}
                     </div>
                     {isSelected && (
@@ -706,7 +783,7 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
         items: [
           { label: "Prénom", value: onboardingData.firstName },
           { label: "Âge", value: onboardingData.age },
-          { label: "Objectif principal", value: MAIN_OBJECTIVES.find(o => o.id === onboardingData.mainObjective)?.name }
+          { label: "Objectif principal", value: WELLNESS_PACKS.find(o => o.id === onboardingData.mainObjective)?.name }
         ]
       },
       {
@@ -812,10 +889,10 @@ export default function ConversationalOnboarding({ onComplete, onSkip }: Convers
             </Button>
           </div>
           <ul className="text-sm text-gray-600 space-y-1">
-            {currentStep.tips.map((tip, index) => (
+            {(Array.isArray(currentStep.tips) ? currentStep.tips : []).map((tip, index) => (
               <li key={index} className="flex items-start">
                 <span className="text-blue-600 mr-2">•</span>
-                {tip}
+                {getLocaleString(tip, locale)}
               </li>
             ))}
           </ul>

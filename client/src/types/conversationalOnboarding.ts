@@ -1,11 +1,16 @@
 // client/src/types/conversationalOnboarding.ts
+export interface MultilangString {
+  fr: string;
+  en: string;
+}
+
 export interface ConversationalStep {
   id: string;
   type: 'question' | 'info' | 'confirmation' | 'summary';
-  title: string;
-  subtitle?: string;
-  question?: string;
-  description?: string;
+  title: string | MultilangString;
+  subtitle?: string | MultilangString;
+  question?: string | MultilangString;
+  description?: string | MultilangString;
   options?: ConversationalOption[];
   inputType?: 'text' | 'number' | 'slider' | 'toggle' | 'multi-select' | 'single-select';
   validation?: ValidationRule[];
@@ -13,27 +18,28 @@ export interface ConversationalStep {
   condition?: (data: OnboardingData) => boolean;
   aiPrompt?: string; // Pour les réponses contextuelles de l'IA
   illustration?: string; // Emoji ou icône
-  tips?: string[];
+  tips?: string[] | MultilangString[];
   estimatedTime?: number; // En minutes
+  dynamicContent?: (data: OnboardingData, locale?: string) => string;
 }
 
 export interface ConversationalOption {
   id: string;
-  label: string;
+  label: string | MultilangString;
   value: any;
-  description?: string;
+  description?: string | MultilangString;
   icon?: string;
   color?: string;
   nextStep?: string;
   triggers?: string[]; // Actions ou modules à activer
   disabled?: boolean;
-  tooltip?: string;
+  tooltip?: string | MultilangString;
 }
 
 export interface ValidationRule {
   type: 'required' | 'min' | 'max' | 'pattern' | 'custom';
   value?: any;
-  message: string;
+  message: string | MultilangString;
   validator?: (value: any) => boolean;
 }
 
@@ -47,6 +53,7 @@ export interface OnboardingProgress {
 }
 
 export interface OnboardingData {
+  locale?: 'fr' | 'en' | 'us';
   // Progression et métadonnées
   progress: OnboardingProgress;
   startedAt: Date;
@@ -56,6 +63,9 @@ export interface OnboardingData {
   firstName?: string;
   mainObjective?: string;
   selectedModules?: string[];
+  selectedPack?: string;
+  trialModules?: string[];
+  suggestedModules?: string[];
   
   // Étape 2: Informations personnelles de base
   age?: number;
@@ -114,12 +124,14 @@ export interface OnboardingData {
     timeframe: string;
     expectations: string[];
   };
+  // Essai gratuit
+  trialEndDate?: string;
 }
 
 export interface ConversationalFlow {
   id: string;
-  name: string;
-  description: string;
+  name: string | MultilangString;
+  description: string | MultilangString;
   steps: ConversationalStep[];
   initialStep: string;
   estimatedDuration: number;

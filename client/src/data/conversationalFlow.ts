@@ -1,7 +1,7 @@
 // client/src/data/conversationalFlow.ts
 import { ConversationalFlow } from '@/types/conversationalOnboarding';
 import { 
-  MAIN_OBJECTIVES, 
+  WELLNESS_PACKS, 
   AVAILABLE_MODULES, 
   AVAILABLE_SPORTS, 
   DIETARY_PREFERENCES,
@@ -14,8 +14,14 @@ import {
 
 export const CONVERSATIONAL_ONBOARDING_FLOW: ConversationalFlow = {
   id: 'myfithero_onboarding_v4',
-  name: 'MyFitHero - AI-Powered Wellness Journey',
-  description: 'Personalized onboarding powered by AI',
+  name: {
+    fr: 'MyFitHero - Parcours Bien-être IA',
+    en: 'MyFitHero - AI-Powered Wellness Journey'
+  },
+  description: {
+    fr: 'Onboarding personnalisé propulsé par l’IA',
+    en: 'Personalized onboarding powered by AI'
+  },
   estimatedDuration: 15,
   modules: ['sport', 'strength', 'nutrition', 'sleep', 'hydration', 'wellness'],
   initialStep: 'welcome',
@@ -24,14 +30,17 @@ export const CONVERSATIONAL_ONBOARDING_FLOW: ConversationalFlow = {
     {
       id: 'welcome',
       type: 'info',
-      title: 'Welcome to MyFitHero! 🎉',
-      subtitle: 'Your AI-Powered Wellness Coach',
-      description: 'I\'ll help you build your personalized program in just a few minutes.',
+      title: { fr: 'Bienvenue sur MyFitHero ! 🎉', en: 'Welcome to MyFitHero! 🎉' },
+      subtitle: { fr: 'Votre coach bien-être IA', en: 'Your AI-Powered Wellness Coach' },
+      description: {
+        fr: 'Je vous aide à créer votre programme personnalisé en quelques minutes.',
+        en: "I'll help you build your personalized program in just a few minutes."
+      },
       illustration: '🏆',
       tips: [
-        'Answer honestly for best results',
-        'You can change your choices anytime',
-        'Takes about 10-15 minutes'
+        { fr: 'Répondez honnêtement pour de meilleurs résultats', en: 'Answer honestly for best results' },
+        { fr: 'Vous pourrez modifier vos choix plus tard', en: 'You can change your choices anytime' },
+        { fr: 'Cela prend environ 10-15 minutes', en: 'Takes about 10-15 minutes' }
       ],
       estimatedTime: 1,
       nextStep: 'get_name'
@@ -41,51 +50,61 @@ export const CONVERSATIONAL_ONBOARDING_FLOW: ConversationalFlow = {
     {
       id: 'get_name',
       type: 'question',
-      title: 'Let\'s get acquainted!',
-      question: 'What should I call you?',
-      description: 'Your name helps us personalize your experience',
+      title: { fr: 'Faisons connaissance !', en: "Let's get acquainted!" },
+      question: { fr: 'Comment dois-je vous appeler ?', en: 'What should I call you?' },
+      description: {
+        fr: 'Votre prénom permet de personnaliser votre expérience',
+        en: 'Your name helps us personalize your experience'
+      },
       illustration: '👋',
       inputType: 'text',
       validation: [
-        { type: 'required', message: 'Please enter your name' },
-        { type: 'min', value: 2, message: 'Name must be at least 2 characters' }
+        { type: 'required', message: { fr: 'Veuillez entrer votre prénom', en: 'Please enter your name' } },
+        { type: 'min', value: 2, message: { fr: 'Le prénom doit comporter au moins 2 caractères', en: 'Name must be at least 2 characters' } }
       ],
       nextStep: 'main_objective',
       estimatedTime: 1
     },
 
-    // 🎯 STEP 3: MAIN GOAL
+
+    // 🎯 STEP 3: PACK SELECTION
     {
-      id: 'main_objective',
+      id: 'pack_selection',
       type: 'question',
-      title: 'Great {firstName}! 🌟',
-      question: 'What\'s your primary goal?',
-      description: 'This helps me recommend the perfect modules for you',
+      title: { fr: 'Super {firstName} ! 🌟', en: 'Great {firstName}! 🌟' },
+      question: { fr: 'Choisissez un pack bien-être pour commencer', en: 'Choose a wellness pack to start' },
+      description: {
+        fr: 'Nos packs sont conçus pour répondre à différents objectifs',
+        en: 'Our packs are designed for different goals'
+      },
       illustration: '🎯',
       inputType: 'single-select',
-      options: MAIN_OBJECTIVES.map(obj => ({
+      options: WELLNESS_PACKS.map(obj => ({
         id: obj.id,
         label: obj.name,
         value: obj.id,
         description: obj.description,
-        icon: obj.icon,
-        triggers: obj.modules
+        price_tier: obj.price_tier,
+        modules: obj.modules
       })),
       validation: [
-        { type: 'required', message: 'Please select your main goal' }
+        { type: 'required', message: { fr: 'Veuillez choisir un pack', en: 'Please choose a pack' } }
       ],
-      nextStep: 'module_selection',
+      nextStep: (response) => response === 'custom' ? 'custom_module_selection' : 'pack_upsell',
       estimatedTime: 2
     },
 
-    // 📦 STEP 4: MODULE SELECTION
+    // 📦 STEP 4: MODULES SI CUSTOM
     {
-      id: 'module_selection',
+      id: 'custom_module_selection',
       type: 'question',
-      title: 'Build Your Perfect Program',
-      question: 'Which areas would you like to focus on?',
-      description: 'Based on your goals, here are our AI-powered recommendations. Each module adapts to your progress.',
-      illustration: '📋',
+      title: { fr: 'Modules à la carte', en: 'Custom modules' },
+      question: { fr: 'Sélectionnez les modules qui vous intéressent', en: 'Select the modules you want' },
+      description: {
+        fr: 'Composez votre programme sur-mesure',
+        en: 'Build your own custom program'
+      },
+      illustration: '🛠️',
       inputType: 'multi-select',
       options: AVAILABLE_MODULES.map(module => ({
         id: module.id,
@@ -96,17 +115,42 @@ export const CONVERSATIONAL_ONBOARDING_FLOW: ConversationalFlow = {
         color: getModuleColor(module.id)
       })),
       validation: [
-        { type: 'required', message: 'Please select at least one module' }
+        { type: 'required', message: { fr: 'Veuillez choisir au moins un module', en: 'Please select at least one module' } }
       ],
-      nextStep: (response, data) => {
-        const selectedModules = response as string[];
-        // If user didn't select key modules, show upsell
-        if (!selectedModules.includes('nutrition') || !selectedModules.includes('sleep')) {
-          return 'module_upsell';
+      nextStep: 'pack_upsell',
+      estimatedTime: 2
+    },
+
+    // 💡 STEP 5: UPSELL INTELLIGENT
+    {
+      id: 'pack_upsell',
+      type: 'info',
+      title: { fr: 'Optimisez votre programme', en: 'Optimize your program' },
+      description: { fr: '', en: '' },
+      illustration: '💡',
+      dynamicContent: (data, locale = 'fr') => {
+        const modules = data.selectedModules || [];
+        if (modules.includes('sport') && !modules.includes('strength')) {
+          return locale === 'en'
+            ? 'Add strength for 25% more performance!'
+            : 'Ajoutez la musculation pour 25% de performance en plus !';
         }
-        return 'personal_info';
+        if (modules.includes('strength') && !modules.includes('nutrition')) {
+          return locale === 'en'
+            ? 'Nutrition is 70% of your results!'
+            : 'La nutrition représente 70% de vos résultats !';
+        }
+        if (modules.includes('sport') && !modules.includes('sleep')) {
+          return locale === 'en'
+            ? 'Recovery is crucial for performance!'
+            : 'La récupération est cruciale pour la performance !';
+        }
+        return locale === 'en'
+          ? 'Your selection is optimal!'
+          : 'Votre sélection est optimale !';
       },
-      estimatedTime: 3
+      nextStep: 'personal_info',
+      estimatedTime: 1
     },
 
     // 💰 STEP 4.5: UPSELL (US Market)
@@ -138,35 +182,33 @@ export const CONVERSATIONAL_ONBOARDING_FLOW: ConversationalFlow = {
       estimatedTime: 1
     },
 
-    // 👤 STEP 5: PERSONAL INFO
+    // 👤 STEP 6: PERSONAL INFO
     {
       id: 'personal_info',
       type: 'question',
-      title: 'Tell me about yourself',
-      question: 'Help me personalize your programs',
-      description: 'Your information is secure and private',
+      title: { fr: 'Parlons de vous', en: 'Let’s talk about you' },
+      question: { fr: 'Aidez-moi à personnaliser votre programme', en: 'Help me personalize your program' },
+      description: {
+        fr: 'Vos informations restent privées',
+        en: 'Your information stays private'
+      },
       illustration: '📊',
       inputType: 'single-select',
       options: [
-        { id: 'age', label: 'Age', value: 'age' },
-        { id: 'gender', label: 'Gender', value: 'gender' },
-        { id: 'lifestyle', label: 'Lifestyle', value: 'lifestyle' },
-        { id: 'time', label: 'Available time', value: 'time' }
+        { id: 'age', label: { fr: 'Âge', en: 'Age' }, value: 'age' },
+        { id: 'gender', label: { fr: 'Genre', en: 'Gender' }, value: 'gender' },
+        { id: 'lifestyle', label: { fr: 'Mode de vie', en: 'Lifestyle' }, value: 'lifestyle' },
+        { id: 'time', label: { fr: 'Temps disponible', en: 'Available time' }, value: 'time' }
       ],
       nextStep: (_, data) => {
-        if (data.selectedModules?.includes('sport')) {
-          return 'sport_selection';
-        } else if (data.selectedModules?.includes('strength')) {
-          return 'strength_setup';
-        } else if (data.selectedModules?.includes('nutrition')) {
-          return 'nutrition_setup';
-        } else if (data.selectedModules?.includes('sleep')) {
-          return 'sleep_setup';
-        } else if (data.selectedModules?.includes('hydration')) {
-          return 'hydration_setup';
-        } else {
-          return 'wellness_setup';
-        }
+        // Séquence dynamique selon modules
+        const modules = data.selectedModules || [];
+        if (modules.includes('sport')) return 'sport_selection';
+        if (modules.includes('strength')) return 'strength_setup';
+        if (modules.includes('nutrition')) return 'nutrition_setup';
+        if (modules.includes('sleep')) return 'sleep_setup';
+        if (modules.includes('hydration')) return 'hydration_setup';
+        return 'wellness_setup';
       },
       estimatedTime: 3
     },
@@ -497,6 +539,8 @@ export const CONVERSATIONAL_ONBOARDING_FLOW: ConversationalFlow = {
   ]
 };
 
+// Ajout du champ locale dans OnboardingData (à faire dans types)
+// Les autres steps peuvent être adaptés de la même façon pour le multilingue si besoin
 // Utility function for module colors
 function getModuleColor(moduleId: string): string {
   const colors: Record<string, string> = {
