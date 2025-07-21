@@ -29,6 +29,17 @@ interface SetEditState {
   value: string;
 }
 
+// Timer de repos par série
+interface RestTimerState {
+  exerciseId: string;
+  setIndex: number;
+  secondsLeft: number;
+  running: boolean;
+}
+
+const DEFAULT_REST_TIME = 90;
+const REST_STEP = 15;
+
 const WorkoutPage: React.FC<WorkoutPageProps> = () => {
   const {
     currentSession,
@@ -48,6 +59,8 @@ const WorkoutPage: React.FC<WorkoutPageProps> = () => {
 
   const [editingSet, setEditingSet] = useState<SetEditState | null>(null);
   const [workoutTime, setWorkoutTime] = useState(0);
+  const [restTimer, setRestTimer] = useState<RestTimerState | null>(null);
+  const [showChangeExercise, setShowChangeExercise] = useState<string | null>(null);
   
   // Exemple de données d'exercices par défaut
   const defaultExercises: Omit<WorkoutExercise, 'id'>[] = [
@@ -126,6 +139,31 @@ const WorkoutPage: React.FC<WorkoutPageProps> = () => {
 
   const handleSetComplete = (exerciseId: string, setIndex: number) => {
     updateExerciseSet(exerciseId, setIndex, { completed: true });
+    // Démarrer le timer de repos pour cette série
+    const exercise = currentSession?.exercises.find(e => e.id === exerciseId);
+    const restTime = exercise?.restTime ?? DEFAULT_REST_TIME;
+    setRestTimer({ exerciseId, setIndex, secondsLeft: restTime, running: true });
+  };
+
+  // Timer de repos par série
+  useEffect(() => {
+    if (restTimer && restTimer.running && restTimer.secondsLeft > 0) {
+      const interval = setInterval(() => {
+        setRestTimer((prev) => prev && prev.secondsLeft > 0 ? { ...prev, secondsLeft: prev.secondsLeft - 1 } : prev);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+    if (restTimer && restTimer.secondsLeft === 0) {
+      setRestTimer((prev) => prev ? { ...prev, running: false } : null);
+    }
+  }, [restTimer]);
+
+  const handleRestAdjust = (delta: number) => {
+    setRestTimer((prev) => prev ? { ...prev, secondsLeft: Math.max(0, prev.secondsLeft + delta) } : prev);
+  };
+
+  const handleRestStop = () => {
+    setRestTimer(null);
   };
 
   const handleExerciseComplete = (exerciseId: string) => {
@@ -204,6 +242,21 @@ const WorkoutPage: React.FC<WorkoutPageProps> = () => {
         </div>
       </div>
 
+      {/* Timer de repos par série (overlay) */}
+      {restTimer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col items-center">
+            <div className="text-3xl font-bold mb-2">Repos</div>
+            <div className="text-5xl font-mono text-blue-600 mb-4">{Math.floor(restTimer.secondsLeft / 60)}:{(restTimer.secondsLeft % 60).toString().padStart(2, '0')}</div>
+            <div className="flex space-x-4 mb-4">
+              <Button onClick={() => handleRestAdjust(-REST_STEP)} variant="outline" className="text-lg">-15s</Button>
+              <Button onClick={() => handleRestAdjust(REST_STEP)} variant="outline" className="text-lg">+15s</Button>
+            </div>
+            <Button onClick={handleRestStop} className="bg-green-600 hover:bg-green-700 w-full">Reprendre</Button>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       <div className="p-4 space-y-4">
         {!currentSession ? (
@@ -276,12 +329,42 @@ const WorkoutPage: React.FC<WorkoutPageProps> = () => {
                       <span className="flex items-center">
                         <Dumbbell className="mr-2" size={16} />
                         {exercise.name}
+                        {/* Bouton changer exercice (manuel/IA) */}
+                        <Button size="sm" variant="outline" className="ml-2 text-xs px-2 py-1" onClick={() => setShowChangeExercise(exercise.id)}>
+                          Changer
+                        </Button>
+                        <Button size="sm" variant="outline" className="ml-2 text-xs px-2 py-1" onClick={() => alert('Suggestion IA à venir')}>IA</Button>
                       </span>
                       {exercise.completed && (
                         <CheckCircle className="text-green-600" size={20} />
                       )}
                     </CardTitle>
                   </CardHeader>
+                  {/* UI de changement d'exercice (manuel) */}
+                  {showChangeExercise === exercise.id && (
+                    <div className="p-2 bg-gray-100 rounded mb-2 flex flex-col space-y-2">
+                      <input
+                        type="text"
+                        className="border rounded px-2 py-1 text-sm"
+                        placeholder="Nouveau nom d'exercice"
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                            // Changer le nom de l'exercice (il faut mettre à jour l'objet exercice)
+                            if (currentSession) {
+                              const updatedExercises = currentSession.exercises.map(ex =>
+                                ex.id === exercise.id ? { ...ex, name: e.currentTarget.value } : ex
+                              );
+                              const updatedSession = { ...currentSession, exercises: updatedExercises };
+                              localStorage.setItem('currentWorkoutSession', JSON.stringify(updatedSession));
+                              window.location.reload(); // Forcer le refresh pour voir le changement (sinon il faudrait passer par le hook)
+                            }
+                            setShowChangeExercise(null);
+                          }
+                        }}
+                      />
+                      <Button size="sm" onClick={() => setShowChangeExercise(null)} variant="outline">Annuler</Button>
+                    </div>
+                  )}
                   <CardContent>
                     <div className="space-y-3">
                       {exercise.sets && exercise.sets.length > 0 ? (
@@ -297,6 +380,12 @@ const WorkoutPage: React.FC<WorkoutPageProps> = () => {
                                 >
                                   <CheckCircle size={14} />
                                 </Button>
+                              )}
+                              {/* Timer de repos par série (badge) */}
+                              {set.completed && restTimer && restTimer.exerciseId === exercise.id && restTimer.setIndex === setIndex && restTimer.running && (
+                                <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-mono animate-pulse">
+                                  Repos: {Math.floor(restTimer.secondsLeft / 60)}:{(restTimer.secondsLeft % 60).toString().padStart(2, '0')}
+                                </span>
                               )}
                             </div>
                           
