@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import ConversationalOnboarding from './ConversationalOnboarding';
@@ -11,6 +12,7 @@ interface OnboardingQuestionnaireProps {
 
 const OnboardingQuestionnaire: React.FC<OnboardingQuestionnaireProps> = ({ user, onComplete }) => {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   // Gérer la finalisation du nouvel onboarding
   const handleConversationalComplete = async (data: OnboardingData) => {
@@ -45,6 +47,8 @@ const OnboardingQuestionnaire: React.FC<OnboardingQuestionnaireProps> = ({ user,
       });
 
       onComplete();
+      // Rediriger vers la page d'accueil après succès
+      setTimeout(() => navigate('/'), 500);
     } catch (error) {
       console.error('Erreur lors de la finalisation:', error);
       toast({
